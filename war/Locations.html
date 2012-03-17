@@ -9,48 +9,207 @@
     <script type="text/javascript" src="http://code.jquery.com/jquery-latest.min.js"></script>
     <script type="text/javascript" charset="utf-8" src="http://code.jquery.com/mobile/latest/jquery.mobile.min.js"></script>
     <script type="text/javascript" charset="utf-8" src="/ui/jquery.ui.map.full.min.js "></script>
+    <script src="http://ajax.aspnetcdn.com/ajax/jquery.validate/1.9/jquery.validate.min.js"></script>
   </head>
   <body>
-    <div data-role="page" id="locationPage">
+
+    <!-- Main Page with the map-->
+    <div data-role="page" id="location-page">
       <div data-role="header">
         <h1>Locations</h1>
       </div>
-
       <div data-role="content">
         <div id="map_canvas" style="width:100%;height:400px"></div>
       </div>
+      <a href="#" data-role="button" id="add-location">Add Location</a>
     </div>
-  <script type="text/javascript">
-  $( '#locationPage' ).live( 'pageinit',function(event){
 
-    function getLocations(mapRef) {
+    <!-- Edit Location Popup-->
+    <div data-role="page" id="location-edit-page">
+      <div data-role="header">
+        <h1>Location</h1>
+      </div>
+      <div data-role="content">
+        <form name="location-edit-form">
+          <input id="locationId" name="locationId" type="hidden"/>
+          <input id="locationLat" name="locationLat" type="hidden"/>
+          <input id="locationLng" name="locationLng" type="hidden"/>
+          <label for="locationName">Location Name</label>
+          <input id="locationName" name="locationName" type="text"  class="required" minlength="2"/>
+          <input type="submit" value="Save" data-inline="true"/>
+          <a href="#" data-role="button" id="cancel-edit" data-inline="true">Cancel</a>
+          <a href="#" data-role="button" id="location-delete" data-inline="true">Delete</a>
+
+        </form>
+      </div>
+    </div>
+
+
+    <!-- Move Location Popup -->
+    <div data-role="page" id="location-move-page" >
+      <div data-role="header">
+        <h1>Move Point</h1>
+      </div>
+      <div data-role="content">
+        Do you want to move the location of point "<span id="move-point-text"></span>"?
+        <form name="location-move-form">
+          <input id="locationId" name="locationId" type="hidden"/>
+          <input id="locationLat" name="locationLat" type="hidden"/>
+          <input id="locationLng" name="locationLng" type="hidden"/>
+          <input id="locationName" name="locationName" type="hidden"/>
+          <input type="submit" value="Yes" data-inline="true"/>
+          <a href="#" data-role="button" id="cancel-move" data-inline="true">No</a>
+
+        </form>
+      </div>
+    </div>
+
+
+    <!-- Confirm Location Delete -->
+   <div data-role="page" id="confirm-location-delete" >
+      <div data-role="header">
+        <h1>Confirm Delete</h1>
+      </div>
+      <div data-role="content">
+        Are you sure you want to delete the location "<span id="delete-point-text"></span>"?
+        <form name="location-delete-form">
+          <input id="locationId" name="locationId" type="hidden"/>
+          <input type="submit" value="Yes" data-inline="true"/>
+          <a href="#" data-role="button" id="cancel-delete" data-inline="true">No</a>
+        </form>
+      </div>
+    </div>
+
+
+  <!-- Javascript Code -->
+  <script type="text/javascript">
+  $( '#location-page' ).live( 'pageinit',function(event){
+    var mapRef; //Reference to the Map Object created on initialisation
+
+    /**Initialisation Method*/
+    $(function() {
+      navigator.geolocation.getCurrentPosition(function(position) {
+        $('#map_canvas')
+         .gmap({'center': new google.maps.LatLng(position.coords.latitude, position.coords.longitude),
+             'mapTypeId':google.maps.MapTypeId.ROADMAP, 'zoom': 16, 'disableDefaultUI':true,
+             'zoomControl':true, 'scaleControl':true,
+             'callback':
+             function() {
+               mapRef = this;
+               getLocations();
+             }
+         });
+      });
+    });
+
+    /**Refreshes the locations display on the Map*/
+    function getLocations() {
       $.getJSON( '/locations',
         function(data) {
+          $('#map_canvas').gmap('clear', 'markers');
           $.each( data.locations, function(i, location) {
             var marker = mapRef.addMarker(
-              { 'position': new google.maps.LatLng(location.lat, location.lng), 'bounds':true, 'zIndex':5, 'draggable':true});
+              { 'position': new google.maps.LatLng(location.locationLat, location.locationLng), 'zIndex':5, 'draggable':true});
 
-            marker.click(function() {
-              mapRef.openInfoWindow({ 'content': location.name }, marker);
+              marker.click(function() {
+                $("form[name='location-edit-form'] input[name='locationId']").val(location.locationId);
+                $("form[name='location-edit-form'] input[name='locationLat']").val(location.locationLat);
+                $("form[name='location-edit-form'] input[name='locationLng']").val(location.locationLng);
+                $("form[name='location-edit-form'] input[name='locationName']").val(location.locationName);
 
-            });
+                $("form[name='location-delete-form'] input[name='locationId']").val(location.locationId);
+                $('#delete-point-text').html(location.locationName);
+
+                $.mobile.changePage($("#location-edit-page"), { transition: "pop", role: "dialog", reverse: false } );
+              });
+
+              marker.dragend(function() {
+                $("form[name='location-move-form'] input[name='locationId']").val(location.locationId);
+                $("form[name='location-move-form'] input[name='locationLat']").val(this.getPosition().lat());
+                $("form[name='location-move-form'] input[name='locationLng']").val(this.getPosition().lng());
+                $("form[name='location-move-form'] input[name='locationName']").val(location.locationName);
+
+                $('#move-point-text').html(location.locationName);
+                $.mobile.changePage($("#location-move-page"), { transition: "pop", role: "dialog", reverse: false } );
+
+              });
         });
       });
 
     }
-    $(function() {
-      $('#map_canvas')
-        .gmap({
-            'mapTypeId':google.maps.MapTypeId.ROADMAP, 'zoom': 10, 'disableDefaultUI':true,
-            'zoomControl':true, 'scaleControl':true,
-            'callback':
-            function() {
-              getLocations(this);
-            }
-        });
-    })
+
+
+  //--------------------------------------------------------------------------------------------------
+  // Form Handlers
+  //--------------------------------------------------------------------------------------------------
+  $("form[name='location-edit-form']").submit(function() {
+     if ($("form[name='location-edit-form']").validate().numberOfInvalids()==0) {
+      $.post("/location", $("form[name='location-edit-form']").serializeArray(), function(){
+        $.mobile.changePage($("#location-page"), { transition: "pop", role: "page", reverse: false } );
+        getLocations();
+      });
+
+     }
+     return false;
   });
 
+  $("form[name='location-move-form']").submit(function() {
+      $.post("/location", $("form[name='location-move-form']").serializeArray(), function(){
+        $.mobile.changePage($("#location-page"), { transition: "pop", role: "page", reverse: false } );
+        getLocations();
+      });
+      return false;
+  });
+
+
+  $("form[name='location-delete-form']").submit(function() {
+      $.post("/delete-location", $("form[name='location-delete-form']").serializeArray(), function(){
+        $.mobile.changePage($("#location-page"), { transition: "pop", role: "page", reverse: false } );
+        getLocations();
+      });
+      return false;
+  });
+
+
+
+  //--------------------------------------------------------------------------------------------------
+  // Button Handlers
+  //--------------------------------------------------------------------------------------------------
+  $('#cancel-edit').click(
+    function(){
+      $.mobile.changePage($("#location-page"), { transition: "pop", role: "page", reverse: false } );
+    });
+
+  $('#cancel-move').click(
+    function(){
+      $.mobile.changePage($("#location-page"), { transition: "pop", role: "page", reverse: false } );
+      getLocations();
+    });
+
+
+  $('#cancel-delete').click(
+    function(){
+      $.mobile.changePage($("#location-edit-page"), { transition: "pop", role: "dialog", reverse: false } );
+    });
+
+  $('#location-delete').click(
+    function(){
+      $.mobile.changePage($("#confirm-location-delete"), { transition: "pop", role: "dialog", reverse: false } );
+      getLocations();
+    });
+
+
+  $('#add-location').click(
+    function(){
+      var centerOfMap = $('#map_canvas').gmap('get', 'map').getCenter();
+      $('#locationId').val(-1);
+      $('#locationLat').val(centerOfMap.lat());
+      $('#locationLng').val(centerOfMap.lng());
+      $('#locationName').val(location.locationName);
+      $.mobile.changePage($("#location-edit-page"), { transition: "pop", role: "dialog", reverse: false } );
+
+    });
+  });
   </script>
   </body>
 </html>
