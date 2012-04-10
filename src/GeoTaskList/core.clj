@@ -25,7 +25,14 @@
            ;Update Location Route                                 
            (POST "/location" {params :params} 
                  (json-response {:locationId (persist/save-location params)}))                         
+
+           (GET "/tasks" []
+                (json-response {:tasks (get-all-tasks)}))           
            
+           (POST "/task" {params :params} 
+                 (json-response {:taskId (persist/save-task params)}))                         
+           
+                      
            ;Static Resources
            (route/resources "/")
            (route/not-found "Page not found"))

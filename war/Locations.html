@@ -13,23 +13,51 @@
   </head>
   <body>
 
-    <!-- Main Page with the map-->
+    <!-- Location Page with the map-->
     <div data-role="page" id="location-page">
-      <div data-role="header">
+      <!--div data-role="header">
         <h1>Locations</h1>
+      </div-->
+      <div data-role="navbar">
+        <ul>
+          <li><a href="#location-page" class="ui-btn-active ui-state-persist">Location</a></li>
+          <li><a href="#task-page" id="show-tasks">Tasks</a></li>
+        </ul>
       </div>
+
       <div data-role="content">
-        <div id="map_canvas" style="width:100%;height:400px"></div>
+        <div id="map_canvas" style="width:100%;height:300px"></div>
       </div>
-      <a href="#" data-role="button" id="add-location">Add Location</a>
+      <a href="#" data-role="button" id="add-location" data-inline="true">Add Location</a>
+
     </div>
+
+
+    <!-- Task Page -->
+    <div data-role="page" id="task-page">
+        <div data-role="navbar">
+          <ul>
+            <li><a href="#location-page" >Location</a></li>
+            <li><a href="#task-page" class="ui-btn-active ui-state-persist">Tasks</a></li>
+          </ul>
+        </div>
+
+      <div data-role="content">
+        <div id="tasks-list">
+        </div>
+      </div>
+      <a href="#" data-role="button" id="add-task" data-inline="true">Add Task</a>
+    </div>
+
 
     <!-- Edit Location Popup-->
     <div data-role="page" id="location-edit-page">
+
       <div data-role="header">
         <h1>Location</h1>
       </div>
       <div data-role="content">
+
         <form name="location-edit-form">
           <input id="locationId" name="locationId" type="hidden"/>
           <input id="locationLat" name="locationLat" type="hidden"/>
@@ -39,7 +67,24 @@
           <input type="submit" value="Save" data-inline="true"/>
           <a href="#" data-role="button" id="cancel-edit" data-inline="true">Cancel</a>
           <a href="#" data-role="button" id="location-delete" data-inline="true">Delete</a>
+        </form>
+      </div>
+    </div>
 
+    <!-- Edit Task Popup-->
+    <div data-role="page" id="task-edit-page">
+      <div data-role="header">
+        <h1>Task</h1>
+      </div>
+      <div data-role="content">
+        <form name="task-edit-form">
+          <input id="taskId" name="taskId" type="hidden"/>
+          <label for="taskName">Task Name</label>
+          <input id="taskName" name="taskName" type="text"  class="required" minlength="2"/>
+          <label for="taskLocationId">Location</label>
+          <select name="taskLocationId" id="taskLocationId"></select>
+          <input type="submit" value="Save" data-inline="true"/>
+          <a href="#" data-role="button" id="location-delete" data-inline="true">Delete</a>
         </form>
       </div>
     </div>
@@ -81,33 +126,40 @@
     </div>
 
 
+    <div data-role="page" id="tasks">
+      <div data-role="header">
+        <h1>Confirm Delete</h1>
+      </div>
+      <div data-role="content">
+
+      </div>
+
+    </div>
+
+
   <!-- Javascript Code -->
+
+
   <script type="text/javascript">
-  $( '#location-page' ).live( 'pageinit',function(event){
+
+    //--------------------------------------------------------------------------------------------------
+    // General functions
+    //--------------------------------------------------------------------------------------------------
+
     var mapRef; //Reference to the Map Object created on initialisation
 
-    /**Initialisation Method*/
-    $(function() {
-      navigator.geolocation.getCurrentPosition(function(position) {
-        $('#map_canvas')
-         .gmap({'center': new google.maps.LatLng(position.coords.latitude, position.coords.longitude),
-             'mapTypeId':google.maps.MapTypeId.ROADMAP, 'zoom': 16, 'disableDefaultUI':true,
-             'zoomControl':true, 'scaleControl':true,
-             'callback':
-             function() {
-               mapRef = this;
-               getLocations();
-             }
-         });
-      });
-    });
 
     /**Refreshes the locations display on the Map*/
     function getLocations() {
       $.getJSON( '/locations',
         function(data) {
           $('#map_canvas').gmap('clear', 'markers');
+          var locationListItems= "";
+
           $.each( data.locations, function(i, location) {
+
+            locationListItems += "<option value='" + location.locationId + "'>" + location.locationName + "</option>";
+
             var marker = mapRef.addMarker(
               { 'position': new google.maps.LatLng(location.locationLat, location.locationLng), 'zIndex':5, 'draggable':true});
 
@@ -134,9 +186,93 @@
 
               });
         });
+        $("#taskLocationId").html(locationListItems);
       });
 
     }
+
+   function calcDistance (fromLat, fromLng, toLat, toLng) {
+      return google.maps.geometry.spherical.computeDistanceBetween(
+        new google.maps.LatLng(fromLat, fromLng), new google.maps.LatLng(toLat, toLng));
+   }
+
+   function getTasks() {
+     $.mobile.showPageLoadingMsg("a", "Loading Tasks", false);
+      $.getJSON( '/tasks',
+        function(data) {
+          $('#tasks-list').empty();
+          navigator.geolocation.getCurrentPosition(function(position) {
+
+
+            $.each( data.tasks, function(i, task) {
+              var distance = calcDistance(position.coords.latitude, position.coords.longitude, task.taskLat, task.taskLng)/1000.0;
+              distance = distance.toFixed(1);
+              $('<div><a href="#" data-role="button" id="task-' + task.taskId +'">' + distance + " kms:" + task.taskName + '</a></div>').appendTo($('#tasks-list'));
+              $('#task-' + task.taskId).click(function(){
+                  $("form[name='task-edit-form'] input[name='taskId']").val(task.taskId);
+                  $("form[name='task-edit-form'] input[name='taskName']").val(task.taskName);
+                  $("form[name='task-edit-form'] input[name='taskLocationId']").val(task.taskLocationId);
+
+                  $.mobile.changePage($("#task-edit-page"), { transition: "pop", role: "dialog", reverse: false } );
+                });
+            });
+
+            $('#tasks-list').trigger( 'create' );
+            $.mobile.hidePageLoadingMsg();
+          });
+        });
+   }
+
+
+
+  //--------------------------------------------------------------------------------------------------
+  // Page Handlers
+  //--------------------------------------------------------------------------------------------------
+  /*$( '#location-page' ).live( 'pageinit',function(event){
+
+        $('#map_canvas')
+         .gmap({'center': new google.maps.LatLng(position.coords.latitude, position.coords.longitude),
+             'mapTypeId':google.maps.MapTypeId.ROADMAP, 'zoom': 16, 'disableDefaultUI':true,
+             'zoomControl':true, 'scaleControl':true,
+             'callback':
+             function() {
+               mapRef = this;
+               //getLocations();
+             }
+         });
+  });*/
+
+
+  $( '#location-page' ).live( 'pageshow',function(event){
+
+
+    /**Initialisation Method*/
+    $(function() {
+      navigator.geolocation.getCurrentPosition(function(position) {
+        $('#map_canvas')
+         .gmap({'center': new google.maps.LatLng(position.coords.latitude, position.coords.longitude),
+             'mapTypeId':google.maps.MapTypeId.ROADMAP, 'zoom': 16, 'disableDefaultUI':true,
+             'zoomControl':true, 'scaleControl':true,
+             'callback':
+             function() {
+               mapRef = this;
+               getLocations();
+             }
+         });
+      });
+    });
+
+  });
+
+  $( '#task-page' ).live( 'pageshow',function(event){
+
+    /**Initialisation Method*/
+    $(function() {
+      getTasks();
+
+    });
+
+  });
 
 
   //--------------------------------------------------------------------------------------------------
@@ -167,6 +303,16 @@
         $.mobile.changePage($("#location-page"), { transition: "pop", role: "page", reverse: false } );
         getLocations();
       });
+      return false;
+  });
+
+  $("form[name='task-edit-form']").submit(function() {
+      if ($("form[name='task-edit-form']").validate().numberOfInvalids()==0) {
+      $.post("/task", $("form[name='task-edit-form']").serializeArray(), function(){
+        $.mobile.changePage($("#task-page"), { transition: "pop", role: "page", reverse: false } );
+      });
+
+     }
       return false;
   });
 
@@ -209,7 +355,17 @@
       $.mobile.changePage($("#location-edit-page"), { transition: "pop", role: "dialog", reverse: false } );
 
     });
-  });
+
+  $('#add-task').click(
+    function(){
+      $('#taskId').val(-1);
+      $("form[name='task-edit-form'] input[name='taskName']").val("");
+      $("form[name='task-edit-form'] input[name='taskLocationId']").val("");
+
+
+      $.mobile.changePage($("#task-edit-page"), { transition: "pop", role: "dialog", reverse: false } );
+    });
+
   </script>
   </body>
 </html>
