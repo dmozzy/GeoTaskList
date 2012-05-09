@@ -1,5 +1,5 @@
 # GeoTaskList Code #
-This code relates to the blog post here: http://digitalbricklayer.blogspot.com.au/2012/03/geotasklist-in-jquery-mobile-and.html
+This code relates to the blog post here: http://www.digitalbricklayers.com/2012/03/geotasklist-in-jquery-mobile-and.html
 
 It chronicles me building a mobile geolocated task list using the following technologies:
 
