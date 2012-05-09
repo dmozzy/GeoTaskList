@@ -5,4 +5,4 @@
 
 
 (defn -service [this request response]
-  ((make-servlet-service-method GeoTaskList-app) this request response))
+  ((make-servlet-service-method geotasklist-app) this request response))
